@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>แบบฝึกหัดมาตราตัวสะกดแม่กด (ไม่ตรงมาตรา)</title>
+  <!-- Google Fonts: Sarabun -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sarabun: ['Sarabun', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* ป้องกันการเลือกข้อความและการแสดง Context Menu เมนูคัดลอกเมื่อกดค้าง */
+    * {
+      font-family: 'Sarabun', sans-serif;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -webkit-touch-callout: none !important;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    }
+    /* ป้องกันการเลื่อนหน้าจอเวลาใช้นิ้วหรือปากกาวาดบน Canvas */
+    .drawing-canvas-container {
+      touch-action: none;
+    }
+    @keyframes pulse-subtle {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+    .animate-pulse-card {
+      animation: pulse-subtle 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="h-[100dvh] w-full text-slate-100 flex flex-col justify-between overflow-hidden p-1.5 sm:p-3" oncontextmenu="return false;">
+
+  <!-- Header HUD: ขยับชิดบน ไม่กินพื้นที่หน้าจอ -->
+  <header class="w-full max-w-4xl mx-auto flex items-center justify-between bg-slate-800/85 backdrop-blur-md px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl border border-slate-700/60 shadow-lg shrink-0">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-violet-600 to-fuchsia-500 flex items-center justify-center font-black text-white text-sm shadow">
+        กด
+      </div>
+      <div>
+        <h1 class="text-xs sm:text-sm font-bold text-white leading-tight flex items-center gap-1.5">
+          แม่กด (ไม่ตรงมาตรา)
+          <span class="text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            โหมดไร้เสียง 12 ข้อ/ด่าน
+          </span>
+        </h1>
+        <p class="text-[10px] text-slate-400 hidden sm:block">ฝึกเขียนและสะกดคำ เช่น พอ-อือ-ชอ=พืช</p>
+      </div>
+    </div>
+
+    <!-- สถิติและปุ่มควบคุม -->
+    <div class="flex items-center gap-2">
+      <div class="bg-slate-900/90 px-2.5 py-0.5 sm:py-1 rounded-xl border border-slate-700 flex items-center gap-1.5 text-xs">
+        <span class="text-amber-400 font-bold">★</span>
+        <span class="text-slate-400 text-[10px] sm:text-xs">คะแนน</span>
+        <span id="statScore" class="font-extrabold text-amber-400 min-w-[20px] text-right">0</span>
+      </div>
+      <button id="btnStudyGuide" class="text-xs px-2 py-1 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 transition flex items-center gap-1">
+        <span>📖 สรุปกฎ</span>
+      </button>
+      <button id="btnResetAll" title="เริ่มใหม่" class="text-xs p-1 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 transition">
+        ↺
+      </button>
+    </div>
+  </header>
+
+  <!-- Level Tabs Bar -->
+  <div class="w-full max-w-4xl mx-auto my-1 grid grid-cols-3 gap-1.5 sm:gap-2 shrink-0">
+    <button id="tabLevel1" onclick="switchStage(1)" class="level-tab py-1.5 px-2 rounded-xl text-xs sm:text-sm font-semibold transition border flex items-center justify-center gap-1.5 bg-violet-600 border-violet-400 text-white shadow-md">
+      <span class="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black/20 text-[10px] sm:text-xs flex items-center justify-center">1</span>
+      <span>ด่านตอบคำถาม</span>
+    </button>
+    <button id="tabLevel2" onclick="switchStage(2)" class="level-tab py-1.5 px-2 rounded-xl text-xs sm:text-sm font-semibold transition border flex items-center justify-center gap-1.5 bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700/60">
+      <span class="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black/20 text-[10px] sm:text-xs flex items-center justify-center">2</span>
+      <span>ด่านเขียนสะกดคำ</span>
+    </button>
+    <button id="tabLevel3" onclick="switchStage(3)" class="level-tab py-1.5 px-2 rounded-xl text-xs sm:text-sm font-semibold transition border flex items-center justify-center gap-1.5 bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700/60">
+      <span class="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black/20 text-[10px] sm:text-xs flex items-center justify-center">3</span>
+      <span>ด่านเรียงบล็อกคำ</span>
+    </button>
+  </div>
+
+  <!-- Main Game Stage Card (พอดี 100% กับหน้าจอ ไม่มีเลื่อน scroll) -->
+  <main class="w-full max-w-4xl mx-auto flex-1 min-h-0 bg-slate-800/50 backdrop-blur-md rounded-2xl border border-slate-700/70 p-2 sm:p-3 flex flex-col justify-between shadow-xl relative overflow-hidden">
+    
+    <!-- Status bar ภายในด่าน -->
+    <div class="flex items-center justify-between gap-2 text-xs text-slate-400 pb-1 border-b border-slate-700/50 shrink-0">
+      <div class="flex items-center gap-1.5">
+        <span id="stageBadgeName" class="font-bold text-violet-400 text-[11px] sm:text-xs">ด่านที่ 1 : ตอบคำถามตัวสะกดและการแยกส่วน</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="questionCounter" class="font-medium text-slate-300 text-[11px] sm:text-xs">ข้อที่ 1/12</span>
+        <div class="w-16 sm:w-24 h-1.5 sm:h-2 bg-slate-700 rounded-full overflow-hidden">
+          <div id="progressBar" class="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full transition-all duration-300" style="width: 8.33%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== VIEW 1: ด่านตอบคำถาม ==================== -->
+    <section id="viewStage1" class="stage-view flex-1 flex flex-col justify-between py-1">
+      <!-- จัดลำดับ: คำศัพท์หลัก -> ป้ายแม่กด -> คำถาม เพื่อไม่ให้บังสระด้านบน/ล่าง -->
+      <div class="text-center pt-0.5 flex flex-col items-center">
+        <!-- 1. คำศัพท์หลัก เพิ่มระยะเว้นด้านล่าง (pb-3 sm:pb-4) ป้องกันการบังสระอุ สระอู หรือเชิงพยัญชนะ -->
+        <div class="my-0.5 flex items-center justify-center">
+          <div id="mcWordDisplay" class="text-4xl sm:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-white to-pink-200 drop-shadow tracking-wider pt-1 pb-3 sm:pb-4 leading-normal">
+            พืช
+          </div>
+        </div>
+
+        <!-- 2. ป้ายแม่กด ขยับลงมาด้านล่าง (mt-2 sm:mt-3) เว้นช่องว่างให้สระอุ สระอู ชัดเจนไม่ทับซ้อน -->
+        <span class="inline-block text-[11px] sm:text-xs text-violet-300 font-semibold uppercase tracking-wider bg-violet-950/85 px-3 py-0.5 rounded-full border border-violet-700/60 shadow-sm mt-2 sm:mt-3 mb-1.5">
+          แม่กด (ไม่ตรงมาตรา)
+        </span>
+
+        <!-- 3. คำถาม -->
+        <p id="mcPromptText" class="text-xs sm:text-sm text-slate-300 font-medium">
+          คำนี้มีคำอ่านสะกดคำที่ถูกต้องอย่างไร?
+        </p>
+      </div>
+
+      <!-- 4 Choice Options -->
+      <div id="mcOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 w-full max-w-xl mx-auto my-auto">
+        <!-- ตัวเลือกถูกสร้างผ่าน JS -->
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: ด่านเขียนสะกดคำ (ใช้นิ้วหรือปากกาเขียนได้) ==================== -->
+    <section id="viewStage2" class="stage-view hidden flex-1 flex flex-col justify-between py-0.5">
+      <!-- ส่วนหัวโจทย์ ขยับขึ้นบนเพื่อไม่ให้บังคำ -->
+      <div class="text-center shrink-0">
+        <span class="inline-block text-[10px] sm:text-xs text-emerald-300 font-semibold bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-700/60">
+          ด่านเขียนสะกดคำด้วยนิ้วหรือปากกา
+        </span>
+        <div class="flex items-center justify-center gap-2 mt-0.5">
+          <span class="text-xs text-slate-300">จงเขียนสะกดคำของคำว่า:</span>
+          <span id="writeTargetWord" class="text-xl sm:text-3xl font-extrabold text-emerald-300 bg-emerald-900/40 px-2.5 py-0.5 rounded-lg border border-emerald-500/40">
+            พืช
+          </span>
+          <span class="text-[11px] sm:text-xs text-amber-300/90 font-mono hidden sm:inline">(เช่น พอ-อือ-ชอ=พืช)</span>
+        </div>
+      </div>
+
+      <!-- Drawing & Writing Area: กระดานวาดเขียนนิ้ว/ปากกา (ไม่มีการเกิด Copy Pop-up / Context menu) -->
+      <div class="flex-1 min-h-0 flex flex-col justify-center my-1 w-full max-w-xl mx-auto">
+        <div class="drawing-canvas-container relative w-full h-[120px] sm:h-[150px] bg-slate-950 rounded-2xl border-2 border-emerald-500/40 overflow-hidden shadow-inner flex flex-col">
+          <!-- แคนวาสสำหรับเขียนด้วยนิ้ว/ปากกา -->
+          <canvas id="paintCanvas" class="w-full h-full cursor-crosshair block touch-none"></canvas>
+
+          <!-- ตัวช่วยข้อความแนะนำในแคนวาส -->
+          <div id="canvasPlaceholder" class="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-600 text-xs sm:text-sm font-medium">
+            ✍️ ใช้นิ้วมือหรือปากกาเขียนลงบนนี้ได้ทันที
+          </div>
+
+          <!-- ปุ่มล้างลายเส้นวาดบนแคนวาส -->
+          <button onclick="clearCanvas()" class="absolute right-2 top-2 z-10 text-[10px] sm:text-xs bg-slate-800/90 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-lg border border-slate-700 flex items-center gap-1 shadow">
+            <span>ลบลายเส้น</span> ↺
+          </button>
+        </div>
+
+        <!-- ช่องข้อความยืนยันคำสะกด (พิมพ์หรือแตะจากปุ่มตัวช่วยสะกด) -->
+        <div class="mt-1.5 flex items-center gap-1.5">
+          <input 
+            type="text" 
+            id="writeInput" 
+            autocomplete="off" 
+            spellcheck="false"
+            placeholder="แตะปุ่มด้านล่างหรือพิมพ์คำสะกด (เช่น พอ-อือ-ชอ=พืช)" 
+            class="flex-1 bg-slate-900/90 text-center text-sm sm:text-base font-bold text-amber-300 border border-slate-600 focus:border-emerald-400 rounded-xl px-2 py-1.5 outline-none shadow-inner transition placeholder:text-slate-500 placeholder:text-xs"
+          >
+          <button 
+            onclick="clearWriteInput()" 
+            class="shrink-0 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-xl border border-slate-700">
+            ลบ
+          </button>
+        </div>
+
+        <!-- แป้นช่วยพิมพ์ตัวสะกดและเครื่องหมาย (แตะคำเติมได้ไวใน 1 คลิก) -->
+        <div id="writeVirtualKeys" class="mt-1 flex flex-wrap gap-1 justify-center max-h-16 sm:max-h-20 overflow-hidden py-0.5">
+          <!-- แสดงปุ่มอัตโนมัติ -->
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-center gap-2.5 shrink-0 pt-0.5">
+        <button onclick="checkWritingAnswer()" class="px-5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-lg border border-emerald-400 transition transform active:scale-95 flex items-center gap-1.5">
+          <span>ตรวจคำตอบ</span>
+          <span>✓</span>
+        </button>
+        <button onclick="revealWriteHint()" class="px-3 py-1.5 sm:py-2 rounded-xl bg-slate-700/80 hover:bg-slate-700 text-slate-300 text-xs border border-slate-600 transition">
+          ดูคำใบ้ 💡
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: ด่านเรียงบล็อกคำ ==================== -->
+    <section id="viewStage3" class="stage-view hidden flex-1 flex flex-col justify-between py-1">
+      <!-- Target instruction: ขยับชิดบน ไม่ทับซ้อนคำ -->
+      <div class="text-center shrink-0">
+        <span class="inline-block text-[10px] sm:text-xs text-sky-300 font-semibold bg-sky-950/80 px-2.5 py-0.5 rounded-full border border-sky-700/60">
+          ด่านเรียงบล็อกเสียงสะกด
+        </span>
+        <div class="mt-1 flex items-center justify-center gap-2">
+          <span class="text-xs sm:text-sm text-slate-300">เรียงการสะกดคำแม่กดของคำว่า:</span>
+          <span id="assembleTargetWord" class="text-2xl sm:text-3xl font-black text-amber-300 bg-slate-900 px-3.5 py-0.5 rounded-xl border border-amber-400/40">
+            รถ
+          </span>
+        </div>
+      </div>
+
+      <!-- กล่องวางชิ้นส่วนคำสะกด ปรับขนาดรองรับตัวอักษรขนาดใหญ่ขึ้น -->
+      <div class="w-full max-w-xl mx-auto my-auto">
+        <div class="text-[10px] sm:text-xs text-slate-400 text-center mb-1">แตะบล็อกด้านล่างเพื่อเรียงต่อกัน:</div>
+        <div id="assemblySlotsContainer" class="min-h-[54px] sm:min-h-[64px] bg-slate-950/80 border-2 border-dashed border-violet-500/50 rounded-2xl p-2 flex flex-wrap items-center justify-center gap-2 shadow-inner">
+          <!-- บล็อกที่เลือกวางไว้ -->
+        </div>
+      </div>
+
+      <!-- คลังบล็อกให้เลือก ปรับขนาดบล็อกให้เด่นชัด -->
+      <div class="w-full max-w-xl mx-auto">
+        <div class="text-[10px] text-slate-400 text-center mb-1">คลังบล็อกพยัญชนะ สระ และตัวสะกด:</div>
+        <div id="assemblyTileBank" class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 bg-slate-900/60 p-2 sm:p-2.5 rounded-2xl border border-slate-700/50">
+          <!-- บล็อกสุ่ม -->
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex items-center justify-center gap-2.5 shrink-0">
+        <button onclick="checkAssemblyAnswer()" class="px-5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-lg border border-sky-400 transition transform active:scale-95">
+          ตรวจผลเรียงบล็อก ✓
+        </button>
+        <button onclick="resetCurrentAssembly()" class="px-3 py-1.5 sm:py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs border border-slate-600 transition">
+          เคลียร์ ↺
+        </button>
+      </div>
+    </section>
+
+    <!-- Visual Feedback Toast: ย้ายลงมาที่ขอบล่างสุด (Bottom Notification) ไม่บังคำหรือโจทย์อย่างแน่นอน -->
+    <div id="feedbackBanner" class="hidden absolute inset-x-2 bottom-2 z-40 mx-auto max-w-lg rounded-xl px-3 py-2 text-center shadow-2xl border transition-all duration-300 transform translate-y-3 opacity-0 pointer-events-none">
+      <div class="flex items-center justify-center gap-2">
+        <span id="feedbackIcon" class="text-xl shrink-0">✨</span>
+        <div class="text-left leading-tight overflow-hidden">
+          <div id="feedbackTitle" class="font-bold text-xs sm:text-sm">ถูกต้อง ยอดเยี่ยม!</div>
+          <div id="feedbackDetail" class="text-[11px] opacity-90 truncate">พืช = พอ-อือ-ชอ=พืช</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- สรุปความรู้ (Modal) -->
+  <div id="modalStudyGuide" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm hidden items-center justify-center p-2 sm:p-4">
+    <div class="bg-slate-900 border border-violet-500/50 w-full max-w-xl rounded-2xl p-3 sm:p-4 shadow-2xl flex flex-col justify-between max-h-[95dvh] overflow-hidden">
+      <div class="flex items-center justify-between pb-1.5 border-b border-slate-800 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📚</span>
+          <h2 class="text-sm sm:text-base font-bold text-white">แม่กด (ไม่ตรงมาตรา) ตัวสะกด 16 ตัว</h2>
+        </div>
+        <button onclick="toggleStudyModal(false)" class="w-6 h-6 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold">
+          ✕
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 my-2 text-xs overflow-hidden">
+        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700/60">
+          <h3 class="font-bold text-violet-300 mb-1 text-[11px] sm:text-xs">⭐ พยัญชนะตัวสะกดแม่กด</h3>
+          <p class="text-slate-300 text-[10px] sm:text-[11px] mb-1">
+            ออกเสียงเหมือนมีเสียง <span class="text-amber-300 font-bold">ด</span> เป็นตัวสะกด:
+          </p>
+          <div class="flex flex-wrap gap-1 font-bold text-slate-100 text-[10px]">
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">จ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ช</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ซ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ฎ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ฏ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ฐ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ฑ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ฒ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ต</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ถ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ท</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ธ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ศ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ษ</span>
+            <span class="px-1 bg-violet-900/60 rounded border border-violet-500/30">ส</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/70 p-2.5 rounded-xl border border-slate-700/60">
+          <h3 class="font-bold text-emerald-300 mb-1 text-[11px] sm:text-xs">📝 ตัวอย่างการสะกดคำ</h3>
+          <ul class="text-[10px] sm:text-[11px] text-slate-300 space-y-0.5 font-mono">
+            <li>• พืช = พอ - อือ - ชอ = <span class="text-emerald-300 font-bold">พืช</span></li>
+            <li>• รถ = รอ - โอะ - ถอ = <span class="text-emerald-300 font-bold">รถ</span></li>
+            <li>• โทษ = ทอ - โอ - ษอ = <span class="text-emerald-300 font-bold">โทษ</span></li>
+            <li>• พุธ = พอ - อุ - ธอ = <span class="text-emerald-300 font-bold">พุธ</span></li>
+            <li>• มงกุฎ = กอ - อุ - ฎอ = <span class="text-emerald-300 font-bold">กุฎ</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <button onclick="toggleStudyModal(false)" class="w-full py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs transition shrink-0">
+        เข้าสู่บทเรียน
+      </button>
+    </div>
+  </div>
+
+  <!-- Stage Clear Modal -->
+  <div id="modalStageClear" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-500/40 w-full max-w-sm rounded-2xl p-4 text-center shadow-2xl animate-pulse-card">
+      <div class="w-12 h-12 bg-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-2 border border-amber-500/40">
+        🏆
+      </div>
+      <h3 class="text-lg font-black text-white" id="clearTitle">ผ่านด่านครบ 12 ข้อ!</h3>
+      <p class="text-xs text-slate-300 mt-0.5" id="clearSubtitle">ยอดเยี่ยมมาก คุณแม่นยำในมาตราแม่กด</p>
+      
+      <div class="my-2.5 bg-slate-800/80 p-2 rounded-xl border border-slate-700">
+        <div class="text-[10px] text-slate-400">คะแนนสะสมทั้งหมด</div>
+        <div class="text-xl font-black text-amber-400" id="clearScoreDisplay">+120 คะแนน</div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="replayCurrentStage()" class="flex-1 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700">
+          เล่นซ้ำด่านนี้
+        </button>
+        <button onclick="goToNextStage()" class="flex-1 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-bold transition shadow-lg">
+          ไปด่านถัดไป ➔
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Controls: กระชับพอดีหน้าจอ 100% -->
+  <footer class="w-full max-w-4xl mx-auto mt-0.5 text-center text-[10px] text-slate-400 flex items-center justify-between px-2 shrink-0">
+    <span class="flex items-center gap-1">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-ping"></span>
+      ล็อกหน้าจอพอดี 100% (ไร้ Scroll bar)
+    </span>
+    <span class="text-slate-500 hidden sm:inline">มาตราตัวสะกดแม่กด (ไม่ตรงรูป)</span>
+    <span>แบบอักษร Sarabun</span>
+  </footer>
+
+  <script>
+    /* -------------------------------------------------------------
+     * DATASET: 12 คำในมาตราแม่กด (ไม่ตรงมาตรา) ตามหลักภาษาไทย
+     * รูปแบบตัวอย่าง: พืช = พอ-อือ-ชอ=พืช (ด่าน 3 เรียง: พอ อือ ชอ)
+     * ----------------------------------------------------------- */
+    const MAE_KOD_WORDS = [
+      {
+        word: "พืช",
+        spellingText: "พอ-อือ-ชอ=พืช",
+        endingLetter: "ช",
+        endingName: "ช ช้าง",
+        tiles: ["พอ", "อือ", "ชอ"],
+        distractorTiles: ["ดอ", "สอ", "ทอ"]
+      },
+      {
+        word: "รถ",
+        spellingText: "รอ-โอะ-ถอ=รถ",
+        endingLetter: "ถ",
+        endingName: "ถ ถุง",
+        tiles: ["รอ", "โอะ", "ถอ"],
+        distractorTiles: ["ทอ", "ดอ", "บอ"]
+      },
+      {
+        word: "โทษ",
+        spellingText: "ทอ-โอ-ษอ=โทษ",
+        endingLetter: "ษ",
+        endingName: "ษ ฤๅษี",
+        tiles: ["ทอ", "โอ", "ษอ"],
+        distractorTiles: ["สอ", "ดอ", "ศอ"]
+      },
+      {
+        word: "พุธ",
+        spellingText: "พอ-อุ-ธอ=พุธ",
+        endingLetter: "ธ",
+        endingName: "ธ ธง",
+        tiles: ["พอ", "อุ", "ธอ"],
+        distractorTiles: ["ทอ", "ถอ", "ดอ"]
+      },
+      {
+        word: "บาท",
+        spellingText: "บอ-อา-ทอ=บาท",
+        endingLetter: "ท",
+        endingName: "ท ทหาร",
+        tiles: ["บอ", "อา", "ทอ"],
+        distractorTiles: ["ถอ", "ดอ", "ธอ"]
+      },
+      {
+        word: "อิฐ",
+        spellingText: "ออ-อิ-ฐอ=อิฐ",
+        endingLetter: "ฐ",
+        endingName: "ฐ ฐาน",
+        tiles: ["ออ", "อิ", "ฐอ"],
+        distractorTiles: ["ถอ", "ตอ", "ดอ"]
+      },
+      {
+        word: "ก๊าซ",
+        spellingText: "กอ-อา-ซอ=ก๊าซ",
+        altSpelling: "กอ-อา-ซอ-ไม้ตรี=ก๊าซ",
+        endingLetter: "ซ",
+        endingName: "ซ โซ่",
+        tiles: ["กอ", "อา", "ซอ"],
+        distractorTiles: ["สอ", "ดอ", "ชอ"]
+      },
+      {
+        word: "กฎ",
+        spellingText: "กอ-โอะ-ฎอ=กฎ",
+        endingLetter: "ฎ",
+        endingName: "ฎ ชฎา",
+        tiles: ["กอ", "โอะ", "ฎอ"],
+        distractorTiles: ["ฏอ", "ดอ", "ตอ"]
+      },
+      {
+        word: "ปรากฏ",
+        targetSyllable: "กฏ",
+        spellingText: "กอ-โอะ-ฏอ=กฏ",
+        endingLetter: "ฏ",
+        endingName: "ฏ ปฏัก",
+        tiles: ["กอ", "โอะ", "ฏอ"],
+        distractorTiles: ["ฎอ", "ตอ", "ถอ"]
+      },
+      {
+        word: "ครุฑ",
+        spellingText: "คอ-รอ-อุ-ฑอ=ครุฑ",
+        endingLetter: "ฑ",
+        endingName: "ฑ มณโฑ",
+        tiles: ["คอ", "รอ", "อุ", "ฑอ"],
+        distractorTiles: ["ทอ", "ถอ", "ดอ"]
+      },
+      {
+        word: "พยาธิ",
+        targetSyllable: "ยาธิ",
+        spellingText: "ยอ-อา-ทอ=ยาด",
+        altSpelling: "พอ-ยอ-อา-ทอ-อิ=พยาธิ",
+        simpleWordSpelling: "ยอ-อา-ธอ=ยาธ",
+        spellingText: "ยอ-อา-ธอ=ยาธิ",
+        endingLetter: "ธ",
+        endingName: "ธิ (ธ ธง สระอิ)",
+        tiles: ["ยอ", "อา", "ธอ"],
+        distractorTiles: ["ทอ", "ดอ", "บอ"]
+      },
+      {
+        word: "ทิศ",
+        spellingText: "ทอ-อิ-ศอ=ทิศ",
+        endingLetter: "ศ",
+        endingName: "ศ ศาลา",
+        tiles: ["ทอ", "อิ", "ศอ"],
+        distractorTiles: ["สอ", "ษอ", "ดอ"]
+      }
+    ];
+
+    /* -------------------------------------------------------------
+     * Global Game States (12 ข้อต่อด่าน)
+     * ----------------------------------------------------------- */
+    const TOTAL_QUESTIONS_PER_STAGE = 12;
+    let currentStage = 1;
+    let currentScore = 0;
+    let questionIndex = 0;
+    let currentItem = null;
+    let stageQuestions = [];
+    let bankTiles = [];
+    let assembledTiles = [];
+    let isProcessing = false;
+    let toastTimeout = null;
+
+    /* Drawing Canvas State */
+    let canvas, ctx;
+    let isDrawing = false;
+    let hasDrawn = false;
+
+    function initGame() {
+      setupCanvas();
+      setupPreventSelections();
+      switchStage(1);
+    }
+
+    /* สลับด่าน และเตรียมคำถาม 12 ข้อของด่านนั้น */
+    function switchStage(stageNum) {
+      currentStage = stageNum;
+      questionIndex = 0;
+      isProcessing = false;
+
+      // จัดเตรียมโจทย์ 12 ข้อสำหรับด่านนั้น ๆ โดยสุ่มลำดับ
+      stageQuestions = shuffleArray([...MAE_KOD_WORDS]);
+
+      // อัปเดตสถานะแท็บ
+      for (let i = 1; i <= 3; i++) {
+        const tab = document.getElementById(`tabLevel${i}`);
+        if (i === stageNum) {
+          tab.className = "level-tab py-1.5 px-2 rounded-xl text-xs sm:text-sm font-semibold transition border flex items-center justify-center gap-1.5 bg-violet-600 border-violet-400 text-white shadow-md";
+        } else {
+          tab.className = "level-tab py-1.5 px-2 rounded-xl text-xs sm:text-sm font-semibold transition border flex items-center justify-center gap-1.5 bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700/60";
+        }
+      }
+
+      document.getElementById('viewStage1').classList.add('hidden');
+      document.getElementById('viewStage2').classList.add('hidden');
+      document.getElementById('viewStage3').classList.add('hidden');
+
+      const stageView = document.getElementById(`viewStage${stageNum}`);
+      stageView.classList.remove('hidden');
+
+      const stageBadges = {
+        1: "ด่านที่ 1 : ตอบคำถามตัวสะกดและการแยกส่วน (12 ข้อ)",
+        2: "ด่านที่ 2 : ฝึกเขียนสะกดคำด้วยนิ้วหรือปากกา (12 ข้อ)",
+        3: "ด่านที่ 3 : เรียงบล็อกเสียงสะกดคำ (12 ข้อ)"
+      };
+      document.getElementById('stageBadgeName').innerText = stageBadges[stageNum];
+
+      if (stageNum === 2) {
+        // ปรับขนาด canvas ให้พอดีกับ container ทันทีที่เปิดด่าน
+        setTimeout(resizeCanvas, 50);
+      }
+
+      loadCurrentQuestion();
+    }
+
+    function updateScore(delta) {
+      currentScore += delta;
+      if (currentScore < 0) currentScore = 0;
+      document.getElementById('statScore').innerText = currentScore;
+    }
+
+    function updateProgress() {
+      const currentQNum = Math.min(questionIndex + 1, TOTAL_QUESTIONS_PER_STAGE);
+      document.getElementById('questionCounter').innerText = `ข้อที่ ${currentQNum}/${TOTAL_QUESTIONS_PER_STAGE}`;
+      const percentage = (currentQNum / TOTAL_QUESTIONS_PER_STAGE) * 100;
+      document.getElementById('progressBar').style.width = `${percentage}%`;
+    }
+
+    /* -------------------------------------------------------------
+     * STAGE 1: ด่านตอบคำถาม (12 ข้อ)
+     * ----------------------------------------------------------- */
+    function loadStage1() {
+      currentItem = stageQuestions[questionIndex];
+      updateProgress();
+
+      document.getElementById('mcWordDisplay').innerText = currentItem.word;
+      const promptText = document.getElementById('mcPromptText');
+      const optionsGrid = document.getElementById('mcOptionsGrid');
+      optionsGrid.innerHTML = "";
+
+      const isSpellingType = (questionIndex % 2 === 0);
+
+      if (isSpellingType) {
+        promptText.innerText = `คำว่า "${currentItem.word}" มีการสะกดคำที่ถูกต้องตามแม่กดอย่างไร?`;
+        const correctAnswer = currentItem.spellingText;
+        const distractors = generateDistractorsForSpelling(currentItem);
+        const allChoices = shuffleArray([correctAnswer, ...distractors]);
+
+        allChoices.forEach((choice, idx) => {
+          const btn = document.createElement('button');
+          btn.className = "group relative p-2 sm:p-2.5 rounded-xl bg-slate-900/90 hover:bg-violet-900/40 text-slate-200 border border-slate-700 hover:border-violet-500 font-mono text-xs sm:text-sm font-semibold transition text-left flex items-center gap-2 shadow";
+          btn.innerHTML = `
+            <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-slate-800 text-slate-400 group-hover:text-white group-hover:bg-violet-600 flex items-center justify-center text-xs font-bold shrink-0">
+              ${['ก', 'ข', 'ค', 'ง'][idx]}
+            </span>
+            <span class="truncate">${choice}</span>
+          `;
+          btn.onclick = () => checkMCAnswer(choice, correctAnswer, btn);
+          optionsGrid.appendChild(btn);
+        });
+      } else {
+        promptText.innerText = `คำว่า "${currentItem.word}" มีพยัญชนะใดเป็นตัวสะกดในมาตราแม่กด?`;
+        const correctAnswer = `${currentItem.endingLetter} (${currentItem.endingName})`;
+        
+        const distractorPool = [
+          "ด (ด เด็ก ตรงมาตรา)",
+          "บ (บ ใบไม้ แม่กบ)",
+          "น (น หนู แม่กน)",
+          "ก (ก ไก่ แม่กก)",
+          "ม (ม ม้า แม่กม)"
+        ];
+        const selectedDistractors = shuffleArray(distractorPool).slice(0, 3);
+        const allChoices = shuffleArray([correctAnswer, ...selectedDistractors]);
+
+        allChoices.forEach((choice, idx) => {
+          const btn = document.createElement('button');
+          btn.className = "group relative p-2 sm:p-2.5 rounded-xl bg-slate-900/90 hover:bg-violet-900/40 text-slate-200 border border-slate-700 hover:border-violet-500 text-xs sm:text-sm font-semibold transition text-left flex items-center gap-2 shadow";
+          btn.innerHTML = `
+            <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-slate-800 text-slate-400 group-hover:text-white group-hover:bg-violet-600 flex items-center justify-center text-xs font-bold shrink-0">
+              ${['ก', 'ข', 'ค', 'ง'][idx]}
+            </span>
+            <span class="truncate font-medium">${choice}</span>
+          `;
+          btn.onclick = () => checkMCAnswer(choice, correctAnswer, btn);
+          optionsGrid.appendChild(btn);
+        });
+      }
+    }
+
+    function generateDistractorsForSpelling(item) {
+      const correct = item.spellingText;
+      const w = item.word;
+      const results = [];
+
+      let d1 = correct.replace(/ชอ|ถอ|ษอ|ธอ|ทอ|ฐอ|ซอ|ฎอ|ฏอ|ฑอ/g, "ดอ");
+      if (d1 === correct) d1 = `พ-ด=${w}`;
+      results.push(d1);
+
+      let d2 = correct.replace(/อือ/g, "อึ").replace(/โอะ/g, "ออ").replace(/โอ/g, "ออ").replace(/อุ/g, "อู").replace(/อา/g, "อะ").replace(/อิ/g, "อี");
+      if (d2 === correct) d2 = `${w} สะกดตรงรูป`;
+      results.push(d2);
+
+      let d3 = correct.replace(/=/g, " สะกดว่า ").replace(/-/g, " ");
+      results.push(d3);
+
+      return results.slice(0, 3);
+    }
+
+    function checkMCAnswer(chosen, correct, btnElement) {
+      if (isProcessing) return;
+      isProcessing = true;
+
+      const isCorrect = (chosen === correct);
+      if (isCorrect) {
+        btnElement.classList.remove('bg-slate-900/90', 'border-slate-700');
+        btnElement.classList.add('bg-emerald-600', 'border-emerald-400', 'text-white');
+        updateScore(10);
+        showVisualFeedback(true, "ถูกต้อง ยอดเยี่ยม!", `${currentItem.word} : ${currentItem.spellingText}`);
+      } else {
+        btnElement.classList.remove('bg-slate-900/90', 'border-slate-700');
+        btnElement.classList.add('bg-rose-600', 'border-rose-400', 'text-white');
+        showVisualFeedback(false, "ยังไม่ถูกต้อง", `เฉลยที่ถูกต้องคือ: ${correct}`);
+      }
+
+      setTimeout(() => {
+        advanceQuestion();
+      }, 1200);
+    }
+
+    /* -------------------------------------------------------------
+     * STAGE 2: ด่านเขียนสะกดคำด้วยนิ้วหรือปากกา (12 ข้อ)
+     * ----------------------------------------------------------- */
+    function loadStage2() {
+      currentItem = stageQuestions[questionIndex];
+      updateProgress();
+
+      document.getElementById('writeTargetWord').innerText = currentItem.word;
+      const input = document.getElementById('writeInput');
+      input.value = "";
+      clearCanvas();
+
+      // สร้างปุ่มตัวช่วยสะกด
+      const container = document.getElementById('writeVirtualKeys');
+      container.innerHTML = "";
+
+      const parts = currentItem.spellingText.split(/[-=]/);
+      const helperKeys = Array.from(new Set([...parts, "-", "=", "ดอ", "สอ", "ทอ"]));
+
+      shuffleArray(helperKeys).forEach(part => {
+        const btn = document.createElement('button');
+        btn.type = "button";
+        btn.className = "px-2 py-0.5 text-xs font-mono font-bold bg-slate-800 hover:bg-slate-700 active:bg-violet-700 text-slate-200 rounded-lg border border-slate-700 transition";
+        btn.innerText = part;
+        btn.onclick = () => {
+          insertIntoWriteInput(part);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function insertIntoWriteInput(val) {
+      const input = document.getElementById('writeInput');
+      input.value += val;
+    }
+
+    function clearWriteInput() {
+      const input = document.getElementById('writeInput');
+      input.value = "";
+    }
+
+    function normalizeThaiSpelling(str) {
+      return str
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/–|—/g, '-')
+        .replace(/==/g, '=');
+    }
+
+    function checkWritingAnswer() {
+      if (isProcessing) return;
+
+      const input = document.getElementById('writeInput');
+      const userText = normalizeThaiSpelling(input.value);
+      const targetText = normalizeThaiSpelling(currentItem.spellingText);
+      const altTarget = currentItem.altSpelling ? normalizeThaiSpelling(currentItem.altSpelling) : null;
+
+      // ตรวจสอบทั้งกรณีมีพิมพ์/กดปุ่ม หรือเขียนลงบน Canvas
+      if (!userText && !hasDrawn) {
+        showVisualFeedback(false, "ยังไม่มีคำตอบ", `ใช้นิ้วเขียนบนกระดาน หรือแตะปุ่มตัวสะกด เช่น: ${currentItem.spellingText}`);
+        return;
+      }
+
+      isProcessing = true;
+      const isCorrect = (userText === targetText) || (altTarget && userText === altTarget) || (hasDrawn && userText === "");
+
+      if (isCorrect) {
+        updateScore(15);
+        showVisualFeedback(true, "เก่งมาก! เขียนสะกดถูกต้อง", `${currentItem.word} = ${currentItem.spellingText}`);
+        setTimeout(() => {
+          advanceQuestion();
+        }, 1300);
+      } else {
+        showVisualFeedback(false, "ตรวจคำสะกดอีกครั้งนะ", `เฉลย: "${currentItem.spellingText}"`);
+        setTimeout(() => {
+          isProcessing = false;
+        }, 1400);
+      }
+    }
+
+    function revealWriteHint() {
+      showVisualFeedback(false, "💡 เฉลยคำใบ้", `${currentItem.word} สะกดว่า: ${currentItem.spellingText}`);
+      const input = document.getElementById('writeInput');
+      input.value = currentItem.spellingText;
+    }
+
+    /* -------------------------------------------------------------
+     * STAGE 3: ด่านเรียงบล็อกคำ (12 ข้อ - ไม่มีเครื่องหมายขีด)
+     * ----------------------------------------------------------- */
+    function loadStage3() {
+      currentItem = stageQuestions[questionIndex];
+      updateProgress();
+
+      document.getElementById('assembleTargetWord').innerText = currentItem.word;
+      assembledTiles = [];
+
+      const pool = [...currentItem.tiles, ...currentItem.distractorTiles];
+      const scrambled = shuffleArray([...pool]);
+      bankTiles = scrambled.map((text, idx) => ({ id: `${text}_${idx}`, text: text, used: false }));
+
+      renderAssemblySlots();
+      renderAssemblyBank();
+    }
+
+    function renderAssemblySlots() {
+      const container = document.getElementById('assemblySlotsContainer');
+      container.innerHTML = "";
+
+      if (assembledTiles.length === 0) {
+        container.innerHTML = `<span class="text-xs sm:text-sm text-slate-500 font-medium">แตะเลือกบล็อกด้านล่างเพื่อวางเรียงที่นี่...</span>`;
+        return;
+      }
+
+      assembledTiles.forEach((tileObj, index) => {
+        const chip = document.createElement('button');
+        chip.className = "px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-rose-600 text-white font-extrabold text-base sm:text-lg font-mono border border-violet-400 shadow-md transition flex items-center gap-1.5 group active:scale-95";
+        chip.title = "แตะเพื่อนำออก";
+        chip.innerHTML = `
+          <span>${tileObj.text}</span>
+          <span class="text-xs text-violet-200 group-hover:text-white font-normal">✕</span>
+        `;
+        chip.onclick = () => removeTileFromAssembly(index);
+        container.appendChild(chip);
+      });
+    }
+
+    function renderAssemblyBank() {
+      const container = document.getElementById('assemblyTileBank');
+      container.innerHTML = "";
+
+      bankTiles.forEach((tileObj) => {
+        const btn = document.createElement('button');
+        if (tileObj.used) {
+          btn.className = "px-3.5 py-1.5 rounded-xl bg-slate-900/40 text-slate-600 border border-slate-800 font-mono font-extrabold text-base sm:text-lg cursor-not-allowed opacity-30";
+          btn.disabled = true;
+        } else {
+          btn.className = "px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-violet-600 text-slate-100 border border-slate-700 hover:border-slate-500 font-mono font-extrabold text-base sm:text-lg shadow transition transform active:scale-95";
+          btn.onclick = () => addTileToAssembly(tileObj);
+        }
+        btn.innerText = tileObj.text;
+        container.appendChild(btn);
+      });
+    }
+
+    function addTileToAssembly(tileObj) {
+      tileObj.used = true;
+      assembledTiles.push(tileObj);
+      renderAssemblySlots();
+      renderAssemblyBank();
+    }
+
+    function removeTileFromAssembly(index) {
+      const removed = assembledTiles.splice(index, 1)[0];
+      if (removed) {
+        removed.used = false;
+      }
+      renderAssemblySlots();
+      renderAssemblyBank();
+    }
+
+    function resetCurrentAssembly() {
+      bankTiles.forEach(t => t.used = false);
+      assembledTiles = [];
+      renderAssemblySlots();
+      renderAssemblyBank();
+    }
+
+    function checkAssemblyAnswer() {
+      if (isProcessing) return;
+
+      const userJoined = assembledTiles.map(t => t.text).join("");
+      const targetJoined = currentItem.tiles.join("");
+
+      if (assembledTiles.length === 0) {
+        showVisualFeedback(false, "ยังไม่ได้เลือกบล็อก", "แตะบล็อกด้านล่างเพื่อเรียงการสะกดคำก่อนนะ");
+        return;
+      }
+
+      isProcessing = true;
+      if (userJoined === targetJoined) {
+        updateScore(15);
+        showVisualFeedback(true, "ถูกต้อง สมบูรณ์แบบ!", `${currentItem.word} = ${currentItem.tiles.join(" ")}`);
+        setTimeout(() => {
+          advanceQuestion();
+        }, 1300);
+      } else {
+        showVisualFeedback(false, "ลำดับบล็อกยังไม่ถูกต้อง", `ที่ถูกต้องคือ: ${currentItem.tiles.join(" ")}`);
+        setTimeout(() => {
+          isProcessing = false;
+        }, 1400);
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * ระบบกระดานวาดเขียน (Canvas ด้วยปากกา Stylus หรือนิ้วมือ)
+     * ----------------------------------------------------------- */
+    function setupCanvas() {
+      canvas = document.getElementById('paintCanvas');
+      ctx = canvas.getContext('2d');
+
+      window.addEventListener('resize', resizeCanvas);
+
+      // Event Listeners สำหรับเมาส์, ปากกา และทัชสกรีน
+      canvas.addEventListener('pointerdown', startDrawing);
+      canvas.addEventListener('pointermove', drawStroke);
+      canvas.addEventListener('pointerup', stopDrawing);
+      canvas.addEventListener('pointercancel', stopDrawing);
+    }
+
+    function resizeCanvas() {
+      if (!canvas || !canvas.parentElement) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      // บันทึกภาพเดิมไว้ถ้ามี
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (canvas.width > 0 && canvas.height > 0) {
+        tempCtx.drawImage(canvas, 0, 0);
+      }
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      // คืนค่าเส้นเขียน
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#34d399'; // สีเขียวมรกตเรืองแสง
+      ctx.lineWidth = 4;
+
+      if (hasDrawn && tempCanvas.width > 0) {
+        ctx.drawImage(tempCanvas, 0, 0, rect.width, rect.height);
+      }
+    }
+
+    function startDrawing(e) {
+      e.preventDefault();
+      isDrawing = true;
+      hasDrawn = true;
+      document.getElementById('canvasPlaceholder').style.display = 'none';
+
+      const pos = getCanvasPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    }
+
+    function drawStroke(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const pos = getCanvasPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    }
+
+    function stopDrawing(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      isDrawing = false;
+      ctx.closePath();
+    }
+
+    function getCanvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    function clearCanvas() {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasDrawn = false;
+      document.getElementById('canvasPlaceholder').style.display = 'flex';
+    }
+
+    /* ป้องกันการกดค้างแล้วเกิดกรอบคลุมข้อความ หรือป็อปอัปเมนูคัดลอก (Copy Callout) */
+    function setupPreventSelections() {
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
+      document.addEventListener('selectstart', (e) => e.preventDefault());
+
+      // ป้องกัน Double Tap Zoom
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          e.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, false);
+    }
+
+    /* -------------------------------------------------------------
+     * การดำเนินโจทย์ และ Pop-up แจ้งเตือนด้านล่าง (Bottom Feedback Toast)
+     * ----------------------------------------------------------- */
+    function loadCurrentQuestion() {
+      isProcessing = false;
+      if (currentStage === 1) {
+        loadStage1();
+      } else if (currentStage === 2) {
+        loadStage2();
+      } else if (currentStage === 3) {
+        loadStage3();
+      }
+    }
+
+    function advanceQuestion() {
+      questionIndex++;
+      if (questionIndex >= TOTAL_QUESTIONS_PER_STAGE) {
+        showStageClearModal();
+      } else {
+        loadCurrentQuestion();
+      }
+    }
+
+    function showStageClearModal() {
+      const modal = document.getElementById('modalStageClear');
+      const title = document.getElementById('clearTitle');
+      const sub = document.getElementById('clearSubtitle');
+      const score = document.getElementById('clearScoreDisplay');
+
+      title.innerText = `ผ่านด่านที่ ${currentStage} ครบ 12 ข้อแล้ว!`;
+      sub.innerText = `คุณทำโจทย์ในด่านนี้ได้อย่างยอดเยี่ยม`;
+      score.innerText = `คะแนนรวม: ${currentScore} แต้ม`;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function replayCurrentStage() {
+      document.getElementById('modalStageClear').classList.add('hidden');
+      document.getElementById('modalStageClear').classList.remove('flex');
+      questionIndex = 0;
+      switchStage(currentStage);
+    }
+
+    function goToNextStage() {
+      document.getElementById('modalStageClear').classList.add('hidden');
+      document.getElementById('modalStageClear').classList.remove('flex');
+      let next = currentStage + 1;
+      if (next > 3) next = 1;
+      switchStage(next);
+    }
+
+    /* Toast อยู่ที่ขอบล่างสุด ไม่บังคำหรือโจทย์กึ่งกลาง */
+    function showVisualFeedback(isSuccess, title, detail) {
+      const banner = document.getElementById('feedbackBanner');
+      const icon = document.getElementById('feedbackIcon');
+      const t = document.getElementById('feedbackTitle');
+      const d = document.getElementById('feedbackDetail');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+
+      if (isSuccess) {
+        banner.className = "absolute inset-x-2 bottom-2 z-40 mx-auto max-w-lg rounded-xl px-3 py-2 text-center shadow-2xl border transition-all duration-300 transform translate-y-0 opacity-100 bg-emerald-950/95 border-emerald-400 text-emerald-100 pointer-events-none";
+        icon.innerText = "✨";
+      } else {
+        banner.className = "absolute inset-x-2 bottom-2 z-40 mx-auto max-w-lg rounded-xl px-3 py-2 text-center shadow-2xl border transition-all duration-300 transform translate-y-0 opacity-100 bg-rose-950/95 border-rose-400 text-rose-100 pointer-events-none";
+        icon.innerText = "⚠️";
+      }
+
+      t.innerText = title;
+      d.innerText = detail || "";
+
+      banner.classList.remove('hidden');
+
+      toastTimeout = setTimeout(() => {
+        banner.classList.add('opacity-0', 'translate-y-3');
+        setTimeout(() => {
+          banner.classList.add('hidden');
+        }, 300);
+      }, 1800);
+    }
+
+    function toggleStudyModal(show) {
+      const modal = document.getElementById('modalStudyGuide');
+      if (show) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    document.getElementById('btnStudyGuide').addEventListener('click', () => toggleStudyModal(true));
+    document.getElementById('btnResetAll').addEventListener('click', () => {
+      currentScore = 0;
+      switchStage(1);
+    });
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initGame();
+    });
+  </script>
+</body>
+</html>
